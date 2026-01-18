@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Sidebar from '@/components/dashboard/Sidebar';
 import ChatInterface from '@/components/dashboard/ChatInterface';
 import CustomerList from '@/components/dashboard/CustomerList';
+import ConversationList from '@/components/dashboard/ConversationList';
+import ItineraryList from '@/components/dashboard/ItineraryList';
 import { Loader2 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -12,6 +14,15 @@ const Dashboard = () => {
   const { hasSelectedLanguage } = useLanguage();
   const [activeSection, setActiveSection] = useState('chat');
   const [conversationId, setConversationId] = useState<string | null>(null);
+
+  const handleSelectConversation = useCallback((id: string) => {
+    setConversationId(id);
+    setActiveSection('chat');
+  }, []);
+
+  const handleConversationCreated = useCallback((id: string) => {
+    setConversationId(id);
+  }, []);
 
   if (loading) {
     return (
@@ -30,7 +41,7 @@ const Dashboard = () => {
   }
 
   const handleNewChat = () => {
-    setConversationId(Date.now().toString());
+    setConversationId(null);
     setActiveSection('chat');
   };
 
@@ -38,9 +49,23 @@ const Dashboard = () => {
     switch (activeSection) {
       case 'customers':
         return <CustomerList />;
+      case 'conversations':
+        return (
+          <ConversationList 
+            onSelectConversation={handleSelectConversation}
+            selectedId={conversationId}
+          />
+        );
+      case 'itineraries':
+        return <ItineraryList />;
       case 'chat':
       default:
-        return <ChatInterface conversationId={conversationId} />;
+        return (
+          <ChatInterface 
+            conversationId={conversationId}
+            onConversationCreated={handleConversationCreated}
+          />
+        );
     }
   };
 

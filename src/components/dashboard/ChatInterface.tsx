@@ -3,31 +3,45 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, Bot, User, Sparkles } from 'lucide-react';
+import { Send, Loader2, Bot, User, Sparkles, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ItineraryCard from './ItineraryCard';
 import TradeoffSlider from './TradeoffSlider';
 import { generateItineraries, sampleQueries, Itinerary } from '@/lib/mockData';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  itineraries?: Itinerary[];
-  showTradeoff?: boolean;
-}
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { ChatMessage, useConversations } from '@/hooks/useConversations';
+import { useItineraries } from '@/hooks/useItineraries';
 
 interface ChatInterfaceProps {
   conversationId: string | null;
+  onConversationCreated?: (id: string) => void;
 }
 
-const ChatInterface = ({ conversationId }: ChatInterfaceProps) => {
+const ChatInterface = ({ conversationId, onConversationCreated }: ChatInterfaceProps) => {
   const { t, language } = useLanguage();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [tradeoff, setTradeoff] = useState(50);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { createConversation, updateConversation, getConversation } = useConversations();
+  const { saveItinerary } = useItineraries();
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
+
+  // Load existing conversation messages
+  useEffect(() => {
+    if (conversationId) {
+      const conv = getConversation(conversationId);
+      if (conv) {
+        setMessages(conv.messages);
+        setCurrentConversationId(conversationId);
+      }
+    } else {
+      setMessages([]);
+      setCurrentConversationId(null);
+    }
+  }, [conversationId, getConversation]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -35,29 +49,82 @@ const ChatInterface = ({ conversationId }: ChatInterfaceProps) => {
     }
   }, [messages]);
 
+  const handleSaveItinerary = async (itinerary: Itinerary) => {
+    const id = await saveItinerary(itinerary, currentConversationId || undefined);
+    if (id) {
+      toast.success('Itinerary saved successfully!');
+    } else {
+      toast.error('Failed to save itinerary');
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response with itineraries
-    setTimeout(() => {
+    // Create conversation if not exists
+    let convId = currentConversationId;
+    if (!convId) {
+      const title = input.slice(0, 50) + (input.length > 50 ? '...' : '');
+      convId = await createConversation(title);
+      if (convId) {
+        setCurrentConversationId(convId);
+        onConversationCreated?.(convId);
+      }
+    }
+
+    try {
+      // Call the edge function for AI response
+      const { data, error } = await supabase.functions.invoke('travel-chat', {
+        body: {
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          language,
+          tradeoffPreference: tradeoff,
+        },
+      });
+
+      if (error) throw error;
+
+      // Generate mock itineraries to display
       const itineraries = generateItineraries(2);
-      const assistantMessage: Message = {
+      
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.message || 'I apologize, but I could not process your request.',
+        itineraries: itineraries,
+        showTradeoff: true,
+      };
+
+      const updatedMessages = [...newMessages, assistantMessage];
+      setMessages(updatedMessages);
+
+      // Save to database
+      if (convId) {
+        await updateConversation(convId, updatedMessages);
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      
+      // Fallback to mock response
+      const itineraries = generateItineraries(2);
+      const fallbackMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: `I've analyzed your travel request and generated 3 optimized options based on your preferences. Each option is tailored to different priorities - budget, balanced value, or premium comfort.
 
 Here's what I considered:
-• Your mention of ${input.includes('senior') ? 'senior citizens - prioritizing comfort and minimal layovers' : 'your travel needs'}
+• Your travel needs and preferences
 • Flight timing and convenience
 • Hotel quality and amenities
 • Overall value for money
@@ -67,9 +134,15 @@ You can use the preference slider below to adjust the recommendations based on w
         showTradeoff: true,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      const updatedMessages = [...newMessages, fallbackMessage];
+      setMessages(updatedMessages);
+
+      if (convId) {
+        await updateConversation(convId, updatedMessages);
+      }
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -168,8 +241,19 @@ You can use the preference slider below to adjust the recommendations based on w
                   {/* Itinerary Cards */}
                   {message.itineraries && (
                     <div className="grid gap-4 mt-4">
-                      {message.itineraries.map((itinerary) => (
-                        <ItineraryCard key={itinerary.id} itinerary={itinerary} />
+                      {(message.itineraries as Itinerary[]).map((itinerary) => (
+                        <div key={itinerary.id} className="relative">
+                          <ItineraryCard itinerary={itinerary} />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="absolute top-4 right-4 gap-1"
+                            onClick={() => handleSaveItinerary(itinerary)}
+                          >
+                            <Save className="w-3 h-3" />
+                            Save
+                          </Button>
+                        </div>
                       ))}
                     </div>
                   )}
