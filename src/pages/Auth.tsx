@@ -4,55 +4,47 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { toast } from 'sonner';
-import { Plane, Mail, KeyRound, ArrowRight, Loader2 } from 'lucide-react';
+import { Plane, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 type AuthMode = 'signin' | 'signup';
-type AuthStep = 'email' | 'otp';
 
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>('signin');
-  const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, verifyOtp } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      toast.error('Please enter your email');
+    if (!email || !password) {
+      toast.error('Please enter your email and password');
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
-    const { error } = mode === 'signup' ? await signUp(email) : await signIn(email);
+    const { error } = mode === 'signup' 
+      ? await signUp(email, password) 
+      : await signIn(email, password);
     setLoading(false);
 
     if (error) {
-      toast.error(error.message);
+      if (error.message.includes('already registered')) {
+        toast.error('This email is already registered. Please sign in.');
+      } else if (error.message.includes('Invalid login credentials')) {
+        toast.error('Invalid email or password. Please try again.');
+      } else {
+        toast.error(error.message);
+      }
     } else {
-      toast.success('OTP sent to your email!');
-      setStep('otp');
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp.length !== 6) {
-      toast.error('Please enter a valid 6-digit OTP');
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await verifyOtp(email, otp);
-    setLoading(false);
-
-    if (error) {
-      toast.error('Invalid or expired OTP. Please try again.');
-    } else {
-      toast.success('Successfully verified!');
+      toast.success(mode === 'signup' ? 'Account created successfully!' : 'Welcome back!');
       navigate('/language');
     }
   };
@@ -77,88 +69,50 @@ const Auth = () => {
             {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
           </CardTitle>
           <CardDescription>
-            {step === 'email' 
-              ? 'Enter your email to receive a one-time password'
-              : 'Enter the 6-digit code sent to your email'}
+            {mode === 'signin' 
+              ? 'Sign in to access your travel copilot'
+              : 'Create an account to get started'}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {step === 'email' ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="agent@travelco.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-11 h-12"
-                  autoFocus
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full h-12 gradient-primary text-primary-foreground font-medium"
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    Send OTP
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </>
-                )}
-              </Button>
-            </form>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex flex-col items-center space-y-4">
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <KeyRound className="w-4 h-4" />
-                  <span>Enter the code sent to {email}</span>
-                </div>
-                <InputOTP
-                  maxLength={6}
-                  value={otp}
-                  onChange={(value) => setOtp(value)}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} className="w-12 h-14 text-xl" />
-                    <InputOTPSlot index={1} className="w-12 h-14 text-xl" />
-                    <InputOTPSlot index={2} className="w-12 h-14 text-xl" />
-                    <InputOTPSlot index={3} className="w-12 h-14 text-xl" />
-                    <InputOTPSlot index={4} className="w-12 h-14 text-xl" />
-                    <InputOTPSlot index={5} className="w-12 h-14 text-xl" />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-              <Button 
-                onClick={handleVerifyOtp}
-                className="w-full h-12 gradient-primary text-primary-foreground font-medium"
-                disabled={loading || otp.length !== 6}
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  'Verify & Continue'
-                )}
-              </Button>
-              <div className="flex justify-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setStep('email');
-                    setOtp('');
-                  }}
-                  className="text-muted-foreground text-sm"
-                >
-                  Use different email
-                </Button>
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="email"
+                placeholder="agent@travelco.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pl-11 h-12"
+                autoFocus
+              />
             </div>
-          )}
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-11 h-12"
+              />
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full h-12 gradient-primary text-primary-foreground font-medium"
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  {mode === 'signin' ? 'Sign In' : 'Create Account'}
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </>
+              )}
+            </Button>
+          </form>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -176,8 +130,7 @@ const Auth = () => {
             className="w-full"
             onClick={() => {
               setMode(mode === 'signin' ? 'signup' : 'signin');
-              setStep('email');
-              setOtp('');
+              setPassword('');
             }}
           >
             {mode === 'signin' ? 'Create Account' : 'Sign In'}
