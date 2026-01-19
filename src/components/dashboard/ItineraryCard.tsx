@@ -17,8 +17,7 @@ import {
   CheckCircle2,
   Sparkles,
   Copy,
-  Mail,
-  MessageSquare
+  UtensilsCrossed,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Itinerary } from '@/lib/mockData';
@@ -78,12 +77,14 @@ const ItineraryCard = ({ itinerary }: ItineraryCardProps) => {
     const from = itinerary.flight.departure.city.toLowerCase();
     const to = itinerary.flight.arrival.city.toLowerCase();
     const date = itinerary.flight.departure.date;
+    const city = itinerary.hotel.city.toLowerCase().replace(/\s+/g, '-');
     
     // Generate booking URLs for popular Indian travel platforms
     const bookingUrls = {
       flight: `https://www.makemytrip.com/flight/search?itinerary=${from}-${to}-${date}&tripType=O&paxType=A-1_C-0_I-0&cabinClass=E`,
       hotel: `https://www.booking.com/searchresults.html?ss=${itinerary.hotel.city}`,
-      combined: `https://www.goibibo.com/`,
+      restaurant: `https://www.zomato.com/${city}/restaurants`,
+      dineout: `https://www.swiggy.com/dineout/${city}`,
     };
     
     return bookingUrls;
@@ -100,6 +101,12 @@ const ItineraryCard = ({ itinerary }: ItineraryCardProps) => {
     const urls = getBookingUrl();
     window.open(urls.hotel, '_blank', 'noopener,noreferrer');
     toast.success('Opening hotel booking website...');
+  };
+
+  const handleBookRestaurant = () => {
+    const urls = getBookingUrl();
+    window.open(urls.restaurant, '_blank', 'noopener,noreferrer');
+    toast.success('Opening restaurant booking website...');
   };
 
   const handleGenerateMessage = () => {
@@ -276,23 +283,34 @@ Your Travel Agent`;
           <div className="flex gap-2">
             <Button
               className={cn(
-                "flex-1 font-medium",
+                "flex-1 font-medium text-xs sm:text-sm",
                 itinerary.priceTrend === 'dropping' 
                   ? "gradient-primary text-primary-foreground" 
                   : "bg-foreground text-background hover:bg-foreground/90"
               )}
               onClick={itinerary.priceTrend === 'dropping' ? undefined : handleBookNow}
             >
-              <Plane className="w-4 h-4 mr-2" />
-              {itinerary.priceTrend === 'dropping' ? t('waitForBetterPrice') : t('bookNow')}
+              <Plane className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{itinerary.priceTrend === 'dropping' ? t('waitForBetterPrice') : t('bookNow')}</span>
+              <span className="sm:hidden">Flight</span>
             </Button>
             <Button
               variant="outline"
-              className="flex-1"
+              className="flex-1 text-xs sm:text-sm"
               onClick={handleBookHotel}
             >
-              <Hotel className="w-4 h-4 mr-2" />
-              Book Hotel
+              <Hotel className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Book Hotel</span>
+              <span className="sm:hidden">Hotel</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 text-xs sm:text-sm"
+              onClick={handleBookRestaurant}
+            >
+              <UtensilsCrossed className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Book Restaurant</span>
+              <span className="sm:hidden">Dine</span>
             </Button>
           </div>
           <Button
