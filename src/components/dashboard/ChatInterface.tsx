@@ -3,7 +3,19 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, Bot, User, Sparkles, Save } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Send, Loader2, Bot, User, Sparkles, Save, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ItineraryCard from './ItineraryCard';
 import TradeoffSlider from './TradeoffSlider';
@@ -12,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ChatMessage, useConversations } from '@/hooks/useConversations';
 import { useItineraries } from '@/hooks/useItineraries';
+import { useCustomers } from '@/hooks/useCustomers';
 
 interface ChatInterfaceProps {
   conversationId: string | null;
@@ -27,7 +40,9 @@ const ChatInterface = ({ conversationId, onConversationCreated }: ChatInterfaceP
   const scrollRef = useRef<HTMLDivElement>(null);
   const { createConversation, updateConversation, getConversation } = useConversations();
   const { saveItinerary } = useItineraries();
+  const { customers } = useCustomers();
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Load existing conversation messages
   useEffect(() => {
@@ -49,10 +64,14 @@ const ChatInterface = ({ conversationId, onConversationCreated }: ChatInterfaceP
     }
   }, [messages]);
 
-  const handleSaveItinerary = async (itinerary: Itinerary) => {
-    const id = await saveItinerary(itinerary, currentConversationId || undefined);
+  const handleSaveItinerary = async (itinerary: Itinerary, customerId?: string) => {
+    const id = await saveItinerary(itinerary, currentConversationId || undefined, customerId || undefined);
     if (id) {
-      toast.success('Itinerary saved successfully!');
+      const customerName = customerId ? customers.find(c => c.id === customerId)?.name : null;
+      toast.success(customerName 
+        ? `Itinerary saved and linked to ${customerName}!`
+        : 'Itinerary saved successfully!'
+      );
     } else {
       toast.error('Failed to save itinerary');
     }
@@ -244,15 +263,57 @@ You can use the preference slider below to adjust the recommendations based on w
                       {(message.itineraries as Itinerary[]).map((itinerary) => (
                         <div key={itinerary.id} className="relative">
                           <ItineraryCard itinerary={itinerary} />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="absolute top-4 right-4 gap-1"
-                            onClick={() => handleSaveItinerary(itinerary)}
-                          >
-                            <Save className="w-3 h-3" />
-                            Save
-                          </Button>
+                          <div className="absolute top-4 right-4 flex gap-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1"
+                                >
+                                  <Save className="w-3 h-3" />
+                                  Save
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-64" align="end">
+                                <div className="space-y-3">
+                                  <div className="text-sm font-medium">Save Itinerary</div>
+                                  <Select 
+                                    value={selectedCustomerId || ''} 
+                                    onValueChange={(val) => setSelectedCustomerId(val || null)}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Link to customer (optional)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No customer</SelectItem>
+                                      {customers.map((customer) => (
+                                        <SelectItem key={customer.id} value={customer.id}>
+                                          <div className="flex items-center gap-2">
+                                            <UserPlus className="w-3 h-3" />
+                                            {customer.name}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => {
+                                      handleSaveItinerary(
+                                        itinerary, 
+                                        selectedCustomerId === 'none' ? undefined : selectedCustomerId || undefined
+                                      );
+                                      setSelectedCustomerId(null);
+                                    }}
+                                  >
+                                    Save Itinerary
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
                       ))}
                     </div>

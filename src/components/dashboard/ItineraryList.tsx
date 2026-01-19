@@ -1,16 +1,36 @@
+import { useState } from 'react';
 import { useItineraries } from '@/hooks/useItineraries';
+import { useCustomers } from '@/hooks/useCustomers';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Map, Trash2, Plane, Hotel, IndianRupee, Clock, Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Map, Trash2, Plane, Hotel, IndianRupee, Clock, Loader2, User, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 const ItineraryList = () => {
   const { t } = useLanguage();
-  const { itineraries, loading, deleteItinerary, updateItineraryStatus } = useItineraries();
+  const { itineraries, loading, deleteItinerary, updateItineraryStatus, updateItineraryCustomer } = useItineraries();
+  const { customers, loading: customersLoading } = useCustomers();
+  const [linkDialogOpen, setLinkDialogOpen] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
 
   const typeConfig = {
     budget: {
@@ -31,6 +51,28 @@ const ItineraryList = () => {
     saved: { label: 'Saved', variant: 'outline' },
     sent: { label: 'Sent', variant: 'secondary' },
     booked: { label: 'Booked', variant: 'default' },
+  };
+
+  const getCustomerName = (customerId: string | null) => {
+    if (!customerId) return null;
+    const customer = customers.find(c => c.id === customerId);
+    return customer?.name || 'Unknown Customer';
+  };
+
+  const handleLinkCustomer = async (itineraryId: string) => {
+    if (!selectedCustomer) {
+      toast.error('Please select a customer');
+      return;
+    }
+    await updateItineraryCustomer(itineraryId, selectedCustomer);
+    toast.success('Customer linked successfully!');
+    setLinkDialogOpen(null);
+    setSelectedCustomer('');
+  };
+
+  const handleUnlinkCustomer = async (itineraryId: string) => {
+    await updateItineraryCustomer(itineraryId, null);
+    toast.success('Customer unlinked');
   };
 
   if (loading) {
@@ -71,16 +113,103 @@ const ItineraryList = () => {
           {itineraries.map((itin) => {
             const config = typeConfig[itin.itinerary_type as keyof typeof typeConfig] || typeConfig.balanced;
             const status = statusConfig[itin.status || 'saved'];
+            const customerName = getCustomerName(itin.customer_id);
 
             return (
               <Card key={itin.id} className="p-5 border shadow-soft">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <Badge variant="outline" className={cn("font-medium", config.badge)}>
                         {config.label}
                       </Badge>
                       <Badge variant={status.variant}>{status.label}</Badge>
+                      
+                      {/* Customer Badge */}
+                      {customerName ? (
+                        <Badge 
+                          variant="secondary" 
+                          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
+                          onClick={() => handleUnlinkCustomer(itin.id)}
+                        >
+                          <User className="w-3 h-3" />
+                          {customerName}
+                          <X className="w-3 h-3 ml-1" />
+                        </Badge>
+                      ) : (
+                        <Dialog open={linkDialogOpen === itin.id} onOpenChange={(open) => {
+                          setLinkDialogOpen(open ? itin.id : null);
+                          if (!open) setSelectedCustomer('');
+                        }}>
+                          <DialogTrigger asChild>
+                            <Badge 
+                              variant="outline" 
+                              className="flex items-center gap-1 cursor-pointer hover:bg-muted"
+                            >
+                              <UserPlus className="w-3 h-3" />
+                              Link Customer
+                            </Badge>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Link to Customer</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 pt-4">
+                              <div>
+                                <label className="text-sm font-medium mb-2 block">
+                                  Select Customer
+                                </label>
+                                <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Choose a customer..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {customersLoading ? (
+                                      <div className="p-2 text-center text-muted-foreground">
+                                        Loading...
+                                      </div>
+                                    ) : customers.length === 0 ? (
+                                      <div className="p-2 text-center text-muted-foreground">
+                                        No customers found. Add customers first.
+                                      </div>
+                                    ) : (
+                                      customers.map((customer) => (
+                                        <SelectItem key={customer.id} value={customer.id}>
+                                          <div className="flex flex-col">
+                                            <span>{customer.name}</span>
+                                            {customer.email && (
+                                              <span className="text-xs text-muted-foreground">
+                                                {customer.email}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </SelectItem>
+                                      ))
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    setLinkDialogOpen(null);
+                                    setSelectedCustomer('');
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button 
+                                  onClick={() => handleLinkCustomer(itin.id)}
+                                  disabled={!selectedCustomer}
+                                >
+                                  Link Customer
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
                     </div>
                     
                     <h3 className="font-semibold text-foreground mb-3">{itin.title}</h3>

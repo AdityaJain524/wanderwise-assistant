@@ -92,6 +92,22 @@ export const useItineraries = () => {
     }
   };
 
+  const updateItineraryCustomer = async (id: string, customerId: string | null) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('itineraries')
+      .update({ customer_id: customerId, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('agent_id', user.id);
+
+    if (!error) {
+      setItineraries(prev => prev.map(itin => 
+        itin.id === id ? { ...itin, customer_id: customerId } : itin
+      ));
+    }
+  };
+
   const deleteItinerary = async (id: string) => {
     if (!user) return;
 
@@ -111,6 +127,7 @@ export const useItineraries = () => {
     loading,
     saveItinerary,
     updateItineraryStatus,
+    updateItineraryCustomer,
     deleteItinerary,
     refetch: fetchItineraries,
   };
