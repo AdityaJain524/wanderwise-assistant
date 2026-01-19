@@ -12,7 +12,8 @@ import {
   LogOut,
   Plus,
   ChevronRight,
-  FileText
+  FileText,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +38,7 @@ const Sidebar = ({ activeSection, setActiveSection, onNewChat }: SidebarProps) =
     { id: 'customers', label: t('customers'), icon: Users },
     { id: 'conversations', label: t('conversations'), icon: MessageSquare },
     { id: 'itineraries', label: t('itineraries'), icon: Map },
+    { id: 'checklists', label: t('bookingChecklist'), icon: ClipboardCheck },
     { id: 'templates', label: 'Templates', icon: FileText },
   ];
 

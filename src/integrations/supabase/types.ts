@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_checklists: {
+        Row: {
+          agent_id: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          items: Json
+          itinerary_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          items?: Json
+          itinerary_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          items?: Json
+          itinerary_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_checklists_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_checklists_itinerary_id_fkey"
+            columns: ["itinerary_id"]
+            isOneToOne: false
+            referencedRelation: "itineraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           agent_id: string

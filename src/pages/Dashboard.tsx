@@ -7,6 +7,7 @@ import ChatInterface from '@/components/dashboard/ChatInterface';
 import CustomerList from '@/components/dashboard/CustomerList';
 import ConversationList from '@/components/dashboard/ConversationList';
 import ItineraryList from '@/components/dashboard/ItineraryList';
+import BookingChecklist from '@/components/dashboard/BookingChecklist';
 import MessageTemplates from '@/components/dashboard/MessageTemplates';
 import { Loader2 } from 'lucide-react';
 
@@ -59,6 +60,8 @@ const Dashboard = () => {
         );
       case 'itineraries':
         return <ItineraryList />;
+      case 'checklists':
+        return <BookingChecklist />;
       case 'templates':
         return (
           <div className="h-full p-6">
