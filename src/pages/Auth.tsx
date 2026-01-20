@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
+  const { hasSelectedLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +47,12 @@ const Auth = () => {
       }
     } else {
       toast.success(mode === 'signup' ? 'Account created successfully!' : 'Welcome back!');
-      navigate('/language');
+      // Only show language selection for first-time signup
+      if (mode === 'signup' && !hasSelectedLanguage) {
+        navigate('/language');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
