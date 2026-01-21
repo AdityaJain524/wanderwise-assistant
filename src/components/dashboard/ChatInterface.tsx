@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTravelMode } from '@/contexts/TravelModeContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -16,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Send, Loader2, Bot, User, Sparkles, Save, UserPlus, Bus, Train, Plane, WifiOff } from 'lucide-react';
+import { Send, Loader2, Bot, User, Sparkles, Save, UserPlus, Bus, Train, Plane, WifiOff, Star, MessageSquare, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ItineraryCard from './ItineraryCard';
 import TradeoffSlider from './TradeoffSlider';
@@ -53,6 +54,52 @@ const ChatInterface = ({ conversationId, onConversationCreated }: ChatInterfaceP
   const { customers } = useCustomers();
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(null);
+
+  // Helper function to format message content with clickable links
+  const formatMessageContent = (content: string) => {
+    // Remove asterisks and format text
+    let formatted = content.replace(/\*\*/g, '').replace(/\*/g, '');
+    
+    // Make URLs clickable
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = formatted.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a 
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline inline-flex items-center gap-1"
+          >
+            {part.includes('redbus') ? 'RedBus' : 
+             part.includes('irctc') ? 'IRCTC' : 
+             part.includes('makemytrip') ? 'MakeMyTrip' : 
+             part.includes('booking.com') ? 'Booking.com' : 
+             part.includes('zomato') ? 'Zomato' : 'Link'}
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
+  const handleFeedbackSubmit = async (messageId: string) => {
+    if (feedbackRating) {
+      toast.success(`Thank you for your feedback! Rating: ${feedbackRating}/5`);
+      setShowFeedback(false);
+      setFeedbackRating(null);
+      setFeedbackText('');
+      setFeedbackMessageId(null);
+    }
+  };
 
   // Monitor online/offline status
   useEffect(() => {
@@ -314,12 +361,52 @@ You can use the preference slider below to adjust the recommendations based on w
                         : "bg-card border border-border shadow-soft"
                     )}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {message.role === 'assistant' 
+                        ? formatMessageContent(message.content)
+                        : message.content
+                      }
+                    </p>
                   </div>
                   
-                  {/* Tradeoff Slider */}
-                  {message.showTradeoff && (
-                    <TradeoffSlider value={tradeoff} onChange={setTradeoff} />
+                  {/* Feedback UI for assistant messages */}
+                  {message.role === 'assistant' && message.content.includes('rate this response') && (
+                    <div className="mt-3 p-4 bg-muted/50 rounded-xl border border-border">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">Rate this response</span>
+                      </div>
+                      <div className="flex gap-1 mb-3">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setFeedbackRating(star)}
+                            className={cn(
+                              "p-1 rounded transition-colors",
+                              feedbackRating && feedbackRating >= star
+                                ? "text-warning"
+                                : "text-muted-foreground hover:text-warning/70"
+                            )}
+                          >
+                            <Star className={cn("w-6 h-6", feedbackRating && feedbackRating >= star && "fill-current")} />
+                          </button>
+                        ))}
+                      </div>
+                      <Input
+                        placeholder="Any changes or feedback? (optional)"
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        className="mb-2"
+                      />
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleFeedbackSubmit(message.id)}
+                        disabled={!feedbackRating}
+                        className="w-full"
+                      >
+                        Submit Feedback
+                      </Button>
+                    </div>
                   )}
                   
                   {/* Itinerary Cards */}
