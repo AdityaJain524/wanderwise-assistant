@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTravelMode } from '@/contexts/TravelModeContext';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ const travelModeLabels = {
 };
 
 const ChatInterface = ({ conversationId, onConversationCreated }: ChatInterfaceProps) => {
+  const { user } = useAuth();
   const { t, language } = useLanguage();
   const { travelMode } = useTravelMode();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -92,12 +94,25 @@ const ChatInterface = ({ conversationId, onConversationCreated }: ChatInterfaceP
   };
 
   const handleFeedbackSubmit = async (messageId: string) => {
-    if (feedbackRating) {
+    if (!feedbackRating || !user) return;
+
+    try {
+      const { error } = await supabase.from('feedback').insert({
+        agent_id: user.id,
+        conversation_id: currentConversationId,
+        message_id: messageId,
+        rating: feedbackRating,
+        feedback_text: feedbackText || null,
+      });
+
+      if (error) throw error;
+
       toast.success(`Thank you for your feedback! Rating: ${feedbackRating}/5`);
-      setShowFeedback(false);
       setFeedbackRating(null);
       setFeedbackText('');
-      setFeedbackMessageId(null);
+    } catch (error) {
+      console.error('Error saving feedback:', error);
+      toast.error('Failed to save feedback. Please try again.');
     }
   };
 

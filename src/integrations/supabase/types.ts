@@ -139,6 +139,44 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          agent_id: string
+          conversation_id: string | null
+          created_at: string
+          feedback_text: string | null
+          id: string
+          message_id: string
+          rating: number
+        }
+        Insert: {
+          agent_id: string
+          conversation_id?: string | null
+          created_at?: string
+          feedback_text?: string | null
+          id?: string
+          message_id: string
+          rating: number
+        }
+        Update: {
+          agent_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          feedback_text?: string | null
+          id?: string
+          message_id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itineraries: {
         Row: {
           agent_id: string
